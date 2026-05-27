@@ -16,6 +16,10 @@ enum DisplayFormatting {
             return "Never"
         }
 
+        if abs(Date().timeIntervalSince(date)) < 10 {
+            return "just now"
+        }
+
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
         return formatter.localizedString(for: date, relativeTo: Date())

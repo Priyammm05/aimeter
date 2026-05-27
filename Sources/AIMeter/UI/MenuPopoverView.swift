@@ -346,20 +346,25 @@ struct MenuPopoverView: View {
         }
     }
 
+    @ViewBuilder
     private func deltaChip(delta: Double) -> some View {
-        let isUp = delta > 0.2
+        let isUp   = delta > 0.2
         let isDown = delta < -0.2
-        let formatted = String(format: "%+.1f%%", delta)
-        let icon = isUp ? "arrow.up" : (isDown ? "arrow.down" : "minus")
-        let color: Color = isUp ? .orange : (isDown ? .green : .secondary)
 
-        return HStack(spacing: 2) {
-            Image(systemName: icon)
-                .font(.system(size: 7, weight: .bold))
-            Text(formatted)
-                .font(.caption2.monospacedDigit())
+        if isUp || isDown {
+            HStack(spacing: 2) {
+                Image(systemName: isUp ? "arrow.up" : "arrow.down")
+                    .font(.system(size: 7, weight: .bold))
+                Text(String(format: "%+.1f%%", delta))
+                    .font(.caption2.monospacedDigit())
+            }
+            .foregroundStyle(isUp ? Color.orange : Color.green)
+        } else {
+            // No meaningful change — just a quiet dash
+            Text("–")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
-        .foregroundStyle(color)
     }
 
     // MARK: - Quick stats row
