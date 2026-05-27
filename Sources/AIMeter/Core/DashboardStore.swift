@@ -7,14 +7,17 @@ final class DashboardStore: ObservableObject {
 
     private var cancellables: Set<AnyCancellable> = []
     private let settingsStore: SettingsStore
+    private let usageHistoryStore: UsageHistoryStore?
     private var snapshotsByProvider: [UsageProvider: ProviderUsageSnapshot] = [:]
 
     init(
         settingsStore: SettingsStore,
         cursorUsageCoordinator: CursorUsageCoordinator,
-        claudeUsageCoordinator: ClaudeUsageCoordinator? = nil
+        claudeUsageCoordinator: ClaudeUsageCoordinator? = nil,
+        usageHistoryStore: UsageHistoryStore? = nil
     ) {
         self.settingsStore = settingsStore
+        self.usageHistoryStore = usageHistoryStore
 
         let coordinators = [cursorUsageCoordinator, claudeUsageCoordinator].compactMap { $0 }
         for coordinator in coordinators {
@@ -32,6 +35,7 @@ final class DashboardStore: ObservableObject {
 
     private func update(_ snapshot: ProviderUsageSnapshot) {
         snapshotsByProvider[snapshot.provider] = snapshot
+        usageHistoryStore?.record(snapshot: snapshot)
 
         if !settingsStore.settings.hasCompletedInitialSetup,
            snapshotsByProvider.values.contains(where: \.hasSuccessfulSync) {

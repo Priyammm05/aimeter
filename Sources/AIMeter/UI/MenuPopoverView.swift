@@ -4,6 +4,7 @@ struct MenuPopoverView: View {
     @ObservedObject var dashboardStore: DashboardStore
     @ObservedObject var cursorUsageCoordinator: CursorUsageCoordinator
     @ObservedObject var claudeUsageCoordinator: ClaudeUsageCoordinator
+    @ObservedObject var usageHistoryStore: UsageHistoryStore
 
     let onRefreshCursor: () -> Void
     let onRefreshClaude: () -> Void
@@ -41,8 +42,10 @@ struct MenuPopoverView: View {
             }
             .padding(14)
         }
-        .frame(width: 380, height: popoverHeight, alignment: .topLeading)
+        .frame(width: 390, height: popoverHeight, alignment: .topLeading)
     }
+
+    // MARK: - Header
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -68,6 +71,8 @@ struct MenuPopoverView: View {
             }
         }
     }
+
+    // MARK: - State helpers
 
     private var isAnyProviderBusy: Bool {
         cursorUsageCoordinator.isRefreshing ||
@@ -96,9 +101,10 @@ struct MenuPopoverView: View {
         if state.presentationState == .firstRun || connectedProviderCount == 0 {
             return 420
         }
-
-        return connectedProviderCount == 1 ? 370 : 560
+        return connectedProviderCount == 1 ? 480 : 740
     }
+
+    // MARK: - First-run content
 
     private var firstRunContent: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -147,6 +153,8 @@ struct MenuPopoverView: View {
         .frame(maxWidth: .infinity)
     }
 
+    // MARK: - Provider section
+
     private func providerSection(_ snapshot: ProviderUsageSnapshot) -> some View {
         let statusMetrics = displayStatusMetrics(for: snapshot)
         let usageMetrics = displayUsageMetrics(for: snapshot)
@@ -156,32 +164,51 @@ struct MenuPopoverView: View {
             snapshot: snapshot,
             usageMetrics: usageMetrics
         )
+        let historyEntries = usageHistoryStore.recentEntries(for: snapshot.provider, limit: 5)
+        let delta = usageHistoryStore.latestDelta(for: snapshot.provider)
+        let burnRatePerHour = usageHistoryStore.burnRate(for: snapshot.provider)
 
         return VStack(alignment: .leading, spacing: 12) {
+
+            // ── Provider header ──
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(snapshot.provider.displayName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(snapshot.planLabel)
-                        .font(.title3.weight(.semibold))
+                    HStack(spacing: 6) {
+                        Text(snapshot.planLabel)
+                            .font(.title3.weight(.semibold))
+                        if let delta {
+                            trendBadge(delta: delta)
+                        }
+                    }
                     Text(snapshot.connectionState.displayText)
                         .font(.caption)
                         .foregroundStyle(providerStatusColor(for: snapshot.connectionState))
                 }
                 Spacer()
-                Text(snapshot.primaryMetric.value)
-                    .font(.title3.weight(.semibold))
-                    .monospacedDigit()
-                    .multilineTextAlignment(.trailing)
-                    .lineLimit(3)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(snapshot.primaryMetric.value)
+                        .font(.title3.weight(.semibold))
+                        .monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                        .lineLimit(3)
+                    if let burnRatePerHour, burnRatePerHour > 0.1 {
+                        Text(burnRateLabel(burnRatePerHour))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
+            // ── Progress bar ──
             if let progressPercent = snapshot.progressPercent {
                 ProgressView(value: progressPercent / 100)
                     .tint(providerProgressColor(for: progressPercent))
             }
 
+            // ── Reset text ──
             if let primaryResetText {
                 Text(primaryResetText)
                     .font(.caption)
@@ -189,6 +216,7 @@ struct MenuPopoverView: View {
                     .lineLimit(1)
             }
 
+            // ── Unpaired status metrics ──
             if !unpairedStatusMetrics.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     ForEach(unpairedStatusMetrics, id: \.title) { metric in
@@ -197,18 +225,31 @@ struct MenuPopoverView: View {
                 }
             }
 
+            // ── Usage metric cards ──
             if !usageMetrics.isEmpty {
                 HStack(spacing: 10) {
                     ForEach(usageMetrics, id: \.title) { metric in
                         metricCard(
                             title: metric.title,
                             value: metric.value,
+                            percent: metric.percent,
                             subtitle: resetText(for: metric, statusMetrics: statusMetrics)
                         )
                     }
                 }
             }
 
+            // ── Usage history ──
+            if historyEntries.count >= 2 {
+                usageHistorySection(entries: historyEntries)
+            }
+
+            // ── Quick stats ──
+            if let burnRatePerHour, snapshot.progressPercent != nil {
+                quickStatsRow(snapshot: snapshot, burnRatePerHour: burnRatePerHour)
+            }
+
+            // ── Sync footer & actions ──
             providerFooter(
                 lastSync: snapshot.fetchedAt,
                 message: providerMessage(for: snapshot)
@@ -219,13 +260,25 @@ struct MenuPopoverView: View {
                     .buttonStyle(.bordered)
                     .disabled(coordinator(for: snapshot.provider).isRefreshing || coordinator(for: snapshot.provider).isConnecting)
 
-                Button(connectButtonTitle(for: snapshot), action: actions(for: snapshot.provider).connect)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(coordinator(for: snapshot.provider).isConnecting)
+                if snapshot.connectionState == .connected {
+                    // Connected: Reconnect is secondary, Disconnect is the prominent action
+                    Button(connectButtonTitle(for: snapshot), action: actions(for: snapshot.provider).connect)
+                        .buttonStyle(.bordered)
+                        .disabled(coordinator(for: snapshot.provider).isConnecting)
 
-                Button("Disconnect", action: actions(for: snapshot.provider).disconnect)
-                    .buttonStyle(.bordered)
-                    .disabled(snapshot.connectionState == .disconnected)
+                    Button("Disconnect", action: actions(for: snapshot.provider).disconnect)
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                } else {
+                    // Not connected: Connect is the prominent call-to-action
+                    Button(connectButtonTitle(for: snapshot), action: actions(for: snapshot.provider).connect)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(coordinator(for: snapshot.provider).isConnecting)
+
+                    Button("Disconnect", action: actions(for: snapshot.provider).disconnect)
+                        .buttonStyle(.bordered)
+                        .disabled(true)
+                }
             }
         }
         .padding(12)
@@ -234,6 +287,141 @@ struct MenuPopoverView: View {
                 .fill(Color(nsColor: .controlBackgroundColor))
         )
     }
+
+    // MARK: - Usage history section
+
+    private func usageHistorySection(entries: [UsageHistoryEntry]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                Text("RECENT READINGS")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.tertiary)
+                    .kerning(0.5)
+            }
+
+            VStack(spacing: 3) {
+                ForEach(entries.indices, id: \.self) { index in
+                    let entry = entries[index]
+                    let prevPercent: Double? = index + 1 < entries.count ? entries[index + 1].percent : nil
+                    historyRow(entry: entry, previousPercent: prevPercent, isLatest: index == 0)
+                }
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(nsColor: .underPageBackgroundColor))
+        )
+    }
+
+    private func historyRow(entry: UsageHistoryEntry, previousPercent: Double?, isLatest: Bool) -> some View {
+        HStack(spacing: 0) {
+            // Timestamp
+            Text(DisplayFormatting.relativeTimestamp(entry.recordedAt))
+                .font(.caption2)
+                .foregroundStyle(isLatest ? .secondary : .tertiary)
+                .frame(width: 88, alignment: .leading)
+                .lineLimit(1)
+
+            Spacer()
+
+            // Percentage
+            Text(DisplayFormatting.percent(entry.percent))
+                .font(.caption2.monospacedDigit())
+                .fontWeight(isLatest ? .semibold : .regular)
+                .foregroundStyle(isLatest ? usageColor(entry.percent) : .secondary)
+
+            // Delta indicator
+            if let prev = previousPercent {
+                let delta = entry.percent - prev
+                deltaChip(delta: delta)
+                    .frame(width: 60, alignment: .trailing)
+            } else {
+                Color.clear.frame(width: 60, height: 1)
+            }
+        }
+    }
+
+    private func deltaChip(delta: Double) -> some View {
+        let isUp = delta > 0.2
+        let isDown = delta < -0.2
+        let formatted = String(format: "%+.1f%%", delta)
+        let icon = isUp ? "arrow.up" : (isDown ? "arrow.down" : "minus")
+        let color: Color = isUp ? .orange : (isDown ? .green : .secondary)
+
+        return HStack(spacing: 2) {
+            Image(systemName: icon)
+                .font(.system(size: 7, weight: .bold))
+            Text(formatted)
+                .font(.caption2.monospacedDigit())
+        }
+        .foregroundStyle(color)
+    }
+
+    // MARK: - Quick stats row
+
+    private func quickStatsRow(snapshot: ProviderUsageSnapshot, burnRatePerHour: Double) -> some View {
+        let remaining = 100 - (snapshot.progressPercent ?? 0)
+        let hoursLeft = burnRatePerHour > 0 ? remaining / burnRatePerHour : nil
+
+        return HStack(spacing: 8) {
+            quickStatChip(
+                icon: "flame",
+                label: "Burn rate",
+                value: burnRateLabel(burnRatePerHour)
+            )
+
+            if let hoursLeft, hoursLeft.isFinite, hoursLeft > 0 {
+                quickStatChip(
+                    icon: "hourglass",
+                    label: "Est. remaining",
+                    value: hoursRemainingLabel(hoursLeft)
+                )
+            }
+        }
+    }
+
+    private func quickStatChip(icon: String, label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 8))
+                    .foregroundStyle(.secondary)
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Text(value)
+                .font(.caption2.monospacedDigit())
+                .fontWeight(.semibold)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(nsColor: .underPageBackgroundColor))
+        )
+    }
+
+    // MARK: - Trend badge
+
+    private func trendBadge(delta: Double) -> some View {
+        let isUp = delta > 0.5
+        let isDown = delta < -0.5
+        let icon = isUp ? "arrow.up.right" : (isDown ? "arrow.down.right" : "minus")
+        let color: Color = isUp ? .orange : (isDown ? .green : .secondary)
+
+        return Image(systemName: icon)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(color)
+    }
+
+    // MARK: - Metric helpers
 
     private func displayUsageMetrics(for snapshot: ProviderUsageSnapshot) -> [UsageMetric] {
         let metrics = snapshot.secondaryMetrics.filter { $0.percent != nil }
@@ -306,6 +494,8 @@ struct MenuPopoverView: View {
         }
     }
 
+    // MARK: - Footer
+
     private func footer(_ state: DashboardState) -> some View {
         HStack {
             Text("Last dashboard sync: \(DisplayFormatting.relativeTimestamp(state.lastRefreshAt))")
@@ -316,6 +506,8 @@ struct MenuPopoverView: View {
                 .buttonStyle(.bordered)
         }
     }
+
+    // MARK: - Onboarding tile
 
     private func onboardingTile(
         provider: UsageProvider = .cursor,
@@ -347,7 +539,9 @@ struct MenuPopoverView: View {
         )
     }
 
-    private func metricCard(title: String, value: String, subtitle: String? = nil) -> some View {
+    // MARK: - Metric card
+
+    private func metricCard(title: String, value: String, percent: Double? = nil, subtitle: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption)
@@ -356,6 +550,7 @@ struct MenuPopoverView: View {
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()
                 .lineLimit(2)
+                .foregroundStyle(percent.map { providerProgressColor(for: $0) } ?? .primary)
             if let subtitle {
                 Text(subtitle)
                     .font(.caption2)
@@ -372,6 +567,8 @@ struct MenuPopoverView: View {
         )
     }
 
+    // MARK: - Provider footer
+
     private func providerFooter(lastSync: Date?, message: String?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Last sync: \(DisplayFormatting.relativeTimestamp(lastSync))")
@@ -386,6 +583,34 @@ struct MenuPopoverView: View {
             }
         }
     }
+
+    // MARK: - Color helpers
+
+    private func usageColor(_ percent: Double) -> Color {
+        switch percent {
+        case 86...: return .red       // ≥ 86% — critical
+        case 61...: return .orange    // 61–85% — warning
+        default:    return .green     // ≤ 60% — healthy
+        }
+    }
+
+    private func providerProgressColor(for percent: Double) -> Color {
+        switch percent {
+        case 86...: return .red
+        case 61...: return .orange
+        default:    return .green
+        }
+    }
+
+    private func providerStatusColor(for state: ProviderConnectionState) -> Color {
+        switch state {
+        case .connected:             return .green
+        case .disconnected:          return .secondary
+        case .authExpired, .syncFailed: return .orange
+        }
+    }
+
+    // MARK: - Label helpers
 
     private func connectButtonTitle(for snapshot: ProviderUsageSnapshot) -> String {
         switch snapshot.connectionState {
@@ -409,46 +634,38 @@ struct MenuPopoverView: View {
         }
     }
 
-    private func providerProgressColor(for percent: Double) -> Color {
-        switch percent {
-        case 90...:
-            return .red
-        case 70...:
-            return .orange
-        default:
-            return .blue
+    private func burnRateLabel(_ ratePerHour: Double) -> String {
+        String(format: "+%.1f%%/hr", ratePerHour)
+    }
+
+    private func hoursRemainingLabel(_ hours: Double) -> String {
+        if hours < 1 {
+            return "\(Int(hours * 60))m left"
+        } else if hours < 24 {
+            return String(format: "%.1fh left", hours)
+        } else {
+            return String(format: "%.1fd left", hours / 24)
         }
     }
 
-    private func providerStatusColor(for state: ProviderConnectionState) -> Color {
-        switch state {
-        case .connected:
-            return .green
-        case .disconnected:
-            return .secondary
-        case .authExpired, .syncFailed:
-            return .orange
-        }
-    }
+    // MARK: - Coordinator / actions
 
     private func coordinator(for provider: UsageProvider) -> ProviderUsageCoordinator {
         switch provider {
-        case .cursor:
-            return cursorUsageCoordinator
-        case .claude:
-            return claudeUsageCoordinator
+        case .cursor: return cursorUsageCoordinator
+        case .claude: return claudeUsageCoordinator
         }
     }
 
     private func actions(for provider: UsageProvider) -> (refresh: () -> Void, connect: () -> Void, disconnect: () -> Void) {
         switch provider {
-        case .cursor:
-            return (onRefreshCursor, onConnectCursor, onDisconnectCursor)
-        case .claude:
-            return (onRefreshClaude, onConnectClaude, onDisconnectClaude)
+        case .cursor: return (onRefreshCursor, onConnectCursor, onDisconnectCursor)
+        case .claude: return (onRefreshClaude, onConnectClaude, onDisconnectClaude)
         }
     }
 }
+
+// MARK: - Extensions
 
 private extension Array where Element == UsageMetric {
     func removingDuplicateTitles() -> [UsageMetric] {

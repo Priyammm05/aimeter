@@ -5,6 +5,7 @@ dist/
 scripts/
 DerivedData/
 .build/
+build/
 .swiftpm/
 xcuserdata/
 *.xcuserdatad/
@@ -12,3 +13,4 @@ xcuserdata/
 *.moved-aside
 *.dSYM/
 *.dSYM.zip
+.claude/

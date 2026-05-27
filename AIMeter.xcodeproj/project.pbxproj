@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1C4F72B3E1D8056C74A29B1 /* UsageHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B89F2A17B3D560A74F91C3 /* UsageHistoryStore.swift */; };
+		D1E2F30A4B5C6D7E8F9A0B1C /* DemoMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F30A4B5C6D7E8F9A0B1C2D /* DemoMode.swift */; };
+		F30A4B5C6D7E8F9A0B1C2D3E /* DemoUsageClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A4B5C6D7E8F9A0B1C2D3E4F /* DemoUsageClient.swift */; };
 		00B3FEC9CEB7766BADA184C5 /* UsageConnectionWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D5EABB0A56640B955A96018 /* UsageConnectionWindowController.swift */; };
 		04548EF004C329784B64BCA3 /* CursorDashboardClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B83BFABBC211E9D2B6B80607 /* CursorDashboardClientTests.swift */; };
 		16971F3175C89B2A15EFB518 /* DisplayFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220E0695EAC46DC1F85AFF6A /* DisplayFormatting.swift */; };
@@ -59,6 +62,9 @@
 /* Begin PBXFileReference section */
 		0AEB145DA10301CC38697AB3 /* CursorUsageCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorUsageCoordinator.swift; sourceTree = "<group>"; };
 		0CDC614998082FB7F6D0A362 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		C4B89F2A17B3D560A74F91C3 /* UsageHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageHistoryStore.swift; sourceTree = "<group>"; };
+		E2F30A4B5C6D7E8F9A0B1C2D /* DemoMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoMode.swift; sourceTree = "<group>"; };
+		0A4B5C6D7E8F9A0B1C2D3E4F /* DemoUsageClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoUsageClient.swift; sourceTree = "<group>"; };
 		0DA5F3ACF61512C6AA3A07D5 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		0FF2E78ABB85C659AC70EEC0 /* AIMeterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIMeterApp.swift; sourceTree = "<group>"; };
 		12D1FE4A45D6C309818B4D05 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -118,11 +124,21 @@
 				A05BD11AE6D23775FBB45C81 /* Claude */,
 				59F5DDDB716619290152B586 /* Core */,
 				088D0ACA5178ACB88ABBE417 /* Cursor */,
+				B5C6D7E8F9A0B1C2D3E4F5A0 /* Demo */,
 				5DE02F4D11C325ADFB948A2D /* Resources */,
 				949272C2A7EB2FAEA9E6B637 /* Storage */,
 				5CFED35D4429D9E1B8357DD4 /* UI */,
 			);
 			path = AIMeter;
+			sourceTree = "<group>";
+		};
+		B5C6D7E8F9A0B1C2D3E4F5A0 /* Demo */ = {
+			isa = PBXGroup;
+			children = (
+				E2F30A4B5C6D7E8F9A0B1C2D /* DemoMode.swift */,
+				0A4B5C6D7E8F9A0B1C2D3E4F /* DemoUsageClient.swift */,
+			);
+			path = Demo;
 			sourceTree = "<group>";
 		};
 		3A0C0389BBE9B479D7C39C5B /* Products */ = {
@@ -198,6 +214,7 @@
 			isa = PBXGroup;
 			children = (
 				0CDC614998082FB7F6D0A362 /* SettingsStore.swift */,
+				C4B89F2A17B3D560A74F91C3 /* UsageHistoryStore.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -351,7 +368,10 @@
 				C4A52A88F70241337DA598B2 /* MenuBarController.swift in Sources */,
 				F8D950FF33F268122E482D7C /* MenuPopoverView.swift in Sources */,
 				AA2B2846B0C47F67E0671F16 /* Models.swift in Sources */,
+				A1C4F72B3E1D8056C74A29B1 /* UsageHistoryStore.swift in Sources */,
 				8E5860905ABD07228B3EA4F1 /* SettingsStore.swift in Sources */,
+				D1E2F30A4B5C6D7E8F9A0B1C /* DemoMode.swift in Sources */,
+				F30A4B5C6D7E8F9A0B1C2D3E /* DemoUsageClient.swift in Sources */,
 				885BDBCA031BC13E474E9757 /* SettingsView.swift in Sources */,
 				AC12B062A10A3AF4BAE1D6FF /* SettingsWindowController.swift in Sources */,
 				00B3FEC9CEB7766BADA184C5 /* UsageConnectionWindowController.swift in Sources */,

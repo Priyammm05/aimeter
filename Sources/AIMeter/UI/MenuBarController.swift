@@ -8,6 +8,7 @@ final class MenuBarController {
     private let cursorUsageCoordinator: CursorUsageCoordinator
     private let claudeUsageCoordinator: ClaudeUsageCoordinator
     private let settingsWindowController: SettingsWindowController
+    private let usageHistoryStore: UsageHistoryStore
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
@@ -19,12 +20,14 @@ final class MenuBarController {
         dashboardStore: DashboardStore,
         cursorUsageCoordinator: CursorUsageCoordinator,
         claudeUsageCoordinator: ClaudeUsageCoordinator,
-        settingsWindowController: SettingsWindowController
+        settingsWindowController: SettingsWindowController,
+        usageHistoryStore: UsageHistoryStore
     ) {
         self.dashboardStore = dashboardStore
         self.cursorUsageCoordinator = cursorUsageCoordinator
         self.claudeUsageCoordinator = claudeUsageCoordinator
         self.settingsWindowController = settingsWindowController
+        self.usageHistoryStore = usageHistoryStore
     }
 
     func install() {
@@ -52,6 +55,7 @@ final class MenuBarController {
                 dashboardStore: dashboardStore,
                 cursorUsageCoordinator: cursorUsageCoordinator,
                 claudeUsageCoordinator: claudeUsageCoordinator,
+                usageHistoryStore: usageHistoryStore,
                 onRefreshCursor: { [weak cursorUsageCoordinator] in
                     Task { await cursorUsageCoordinator?.refresh() }
                 },
@@ -109,10 +113,10 @@ final class MenuBarController {
         if state.presentationState == .firstRun || connectedProviderCount == 0 {
             height = 420
         } else {
-            height = connectedProviderCount == 1 ? 370 : 560
+            height = connectedProviderCount == 1 ? 480 : 740
         }
 
-        return NSSize(width: 380, height: height)
+        return NSSize(width: 390, height: height)
     }
 
     private func tooltip(for state: DashboardState) -> String {
@@ -231,57 +235,85 @@ final class MenuBarController {
 }
 
 private enum StatusBarImageFactory {
+    // Total icon: 52×20. Bar: 32×12 at (1,4). Percent text to the right.
     static func image(progress: Double, state: CursorConnectionState) -> NSImage {
-        let size = NSSize(width: 34, height: 16)
+        let size = NSSize(width: 52, height: 20)
         let image = NSImage(size: size)
         image.lockFocus()
 
-        let barRect = NSRect(x: 4, y: 4, width: 22, height: 8)
-        drawBar(rect: barRect, progress: progress, color: .systemBlue, isConnected: state == .connected)
-        drawIndicator(atX: 29, state: state)
+        let barRect = NSRect(x: 1, y: 4, width: 32, height: 12)
+        let color = fillColor(for: progress, state: state)
+        drawBar(rect: barRect, progress: progress, color: color, isConnected: state == .connected)
+
+        if state == .connected {
+            drawPercentText(progress: progress, barMaxX: barRect.maxX + 3, size: size)
+        } else {
+            drawIndicator(atX: barRect.maxX + 4, size: size, state: state)
+        }
 
         image.unlockFocus()
         image.isTemplate = false
         return image
     }
 
-    private static func drawBar(rect: NSRect, progress: Double, color: NSColor, isConnected: Bool) {
-        let backgroundPath = NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4)
-        NSColor.tertiaryLabelColor.withAlphaComponent(isConnected ? 0.25 : 0.12).setFill()
-        backgroundPath.fill()
+    // MARK: - Color
 
-        guard isConnected else {
-            return
+    private static func fillColor(for progress: Double, state: CursorConnectionState) -> NSColor {
+        guard state == .connected else { return .systemGray }
+        switch progress * 100 {
+        case 86...: return .systemRed      // ≥ 86% — critical
+        case 61...: return .systemOrange   // 61–85% — warning
+        default:    return .systemGreen    // ≤ 60% — healthy
         }
+    }
+
+    // MARK: - Drawing
+
+    private static func drawBar(rect: NSRect, progress: Double, color: NSColor, isConnected: Bool) {
+        // Background track
+        let bgPath = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
+        NSColor.tertiaryLabelColor.withAlphaComponent(isConnected ? 0.22 : 0.10).setFill()
+        bgPath.fill()
+
+        guard isConnected else { return }
 
         let clamped = min(max(progress, 0), 1)
-        guard clamped > 0 else {
-            return
-        }
+        guard clamped > 0 else { return }
 
+        // Filled portion
         let fillRect = NSRect(x: rect.minX, y: rect.minY, width: rect.width * clamped, height: rect.height)
-        let fillPath = NSBezierPath(roundedRect: fillRect, xRadius: 4, yRadius: 4)
+        let fillPath = NSBezierPath(roundedRect: fillRect, xRadius: 6, yRadius: 6)
         color.setFill()
         fillPath.fill()
     }
 
-    private static func drawIndicator(atX x: CGFloat, state: CursorConnectionState) {
-        guard state != .connected else { return }
+    private static func drawPercentText(progress: Double, barMaxX: CGFloat, size: NSSize) {
+        let pct = Int(round(min(max(progress, 0), 1) * 100))
+        let text = "\(pct)%"
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .semibold),
+            .foregroundColor: NSColor.labelColor
+        ]
+        let str = NSAttributedString(string: text, attributes: attrs)
+        let textSize = str.size()
+        let y = (size.height - textSize.height) / 2 + 0.5
+        str.draw(at: NSPoint(x: barMaxX, y: y))
+    }
 
-        let indicatorRect = NSRect(x: x, y: 6, width: 4, height: 4)
-        let indicatorPath = NSBezierPath(ovalIn: indicatorRect)
+    private static func drawIndicator(atX x: CGFloat, size: NSSize, state: CursorConnectionState) {
+        guard state != .connected else { return }
+        let dotSize: CGFloat = 5
+        let dotRect = NSRect(x: x, y: (size.height - dotSize) / 2, width: dotSize, height: dotSize)
+        let dotPath = NSBezierPath(ovalIn: dotRect)
         indicatorColor(for: state).setFill()
-        indicatorPath.fill()
+        dotPath.fill()
     }
 
     private static func indicatorColor(for state: CursorConnectionState) -> NSColor {
         switch state {
-        case .authExpired, .syncFailed:
-            return .systemOrange
-        case .disconnected:
-            return .systemYellow
-        case .connected:
-            return .clear
+        case .authExpired, .syncFailed: return .systemOrange
+        case .disconnected:             return .systemYellow
+        case .connected:                return .clear
         }
     }
 }
