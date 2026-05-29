@@ -113,7 +113,7 @@ final class MenuBarController {
         if state.presentationState == .firstRun || connectedProviderCount == 0 {
             height = 420
         } else {
-            height = connectedProviderCount == 1 ? 480 : 740
+            height = connectedProviderCount == 1 ? 380 : 620
         }
 
         return NSSize(width: 390, height: height)

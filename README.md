@@ -13,7 +13,6 @@ AIMeter is a minimal macOS menu bar app for tracking personal Cursor and Claude 
 - Native macOS menu bar utility with no Dock icon.
 - **Color-coded progress bar** — green (≤60%), orange (61–85%), red (≥86%) at a glance.
 - **Usage percentage** shown directly in the menu bar next to the bar.
-- **Recent Readings** — timestamped history of your last 5 usage snapshots with delta indicators (▲/▼).
 - **Burn rate & estimated time remaining** — calculated automatically from your reading history.
 - **Trend badge** — ↗/↘ arrow on the plan label shows if usage is climbing or dropping.
 - Tracks Cursor total, Auto, and API usage.
@@ -73,7 +72,6 @@ When disconnected, a small dot replaces the percentage indicator.
 | Claude | Plan label, session usage %, reset time, All models usage, Claude Design usage |
 
 Both providers also show:
-- **Recent Readings** — last 5 timestamped usage snapshots with change deltas
 - **Burn rate** — average % consumed per hour (calculated from history)
 - **Estimated time remaining** — how long until your quota runs out at current burn rate
 

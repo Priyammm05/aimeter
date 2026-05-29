@@ -101,7 +101,7 @@ struct MenuPopoverView: View {
         if state.presentationState == .firstRun || connectedProviderCount == 0 {
             return 420
         }
-        return connectedProviderCount == 1 ? 480 : 740
+        return connectedProviderCount == 1 ? 380 : 620
     }
 
     // MARK: - First-run content
@@ -164,7 +164,6 @@ struct MenuPopoverView: View {
             snapshot: snapshot,
             usageMetrics: usageMetrics
         )
-        let historyEntries = usageHistoryStore.recentEntries(for: snapshot.provider, limit: 5)
         let delta = usageHistoryStore.latestDelta(for: snapshot.provider)
         let burnRatePerHour = usageHistoryStore.burnRate(for: snapshot.provider)
 
@@ -239,11 +238,6 @@ struct MenuPopoverView: View {
                 }
             }
 
-            // ── Usage history ──
-            if historyEntries.count >= 2 {
-                usageHistorySection(entries: historyEntries)
-            }
-
             // ── Quick stats ──
             if let burnRatePerHour, snapshot.progressPercent != nil {
                 quickStatsRow(snapshot: snapshot, burnRatePerHour: burnRatePerHour)
@@ -286,85 +280,6 @@ struct MenuPopoverView: View {
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color(nsColor: .controlBackgroundColor))
         )
-    }
-
-    // MARK: - Usage history section
-
-    private func usageHistorySection(entries: [UsageHistoryEntry]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                Text("RECENT READINGS")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.tertiary)
-                    .kerning(0.5)
-            }
-
-            VStack(spacing: 3) {
-                ForEach(entries.indices, id: \.self) { index in
-                    let entry = entries[index]
-                    let prevPercent: Double? = index + 1 < entries.count ? entries[index + 1].percent : nil
-                    historyRow(entry: entry, previousPercent: prevPercent, isLatest: index == 0)
-                }
-            }
-        }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(nsColor: .underPageBackgroundColor))
-        )
-    }
-
-    private func historyRow(entry: UsageHistoryEntry, previousPercent: Double?, isLatest: Bool) -> some View {
-        HStack(spacing: 0) {
-            // Timestamp
-            Text(DisplayFormatting.relativeTimestamp(entry.recordedAt))
-                .font(.caption2)
-                .foregroundStyle(isLatest ? .secondary : .tertiary)
-                .frame(width: 88, alignment: .leading)
-                .lineLimit(1)
-
-            Spacer()
-
-            // Percentage
-            Text(DisplayFormatting.percent(entry.percent))
-                .font(.caption2.monospacedDigit())
-                .fontWeight(isLatest ? .semibold : .regular)
-                .foregroundStyle(isLatest ? usageColor(entry.percent) : .secondary)
-
-            // Delta indicator
-            if let prev = previousPercent {
-                let delta = entry.percent - prev
-                deltaChip(delta: delta)
-                    .frame(width: 60, alignment: .trailing)
-            } else {
-                Color.clear.frame(width: 60, height: 1)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func deltaChip(delta: Double) -> some View {
-        let isUp   = delta > 0.2
-        let isDown = delta < -0.2
-
-        if isUp || isDown {
-            HStack(spacing: 2) {
-                Image(systemName: isUp ? "arrow.up" : "arrow.down")
-                    .font(.system(size: 7, weight: .bold))
-                Text(String(format: "%+.1f%%", delta))
-                    .font(.caption2.monospacedDigit())
-            }
-            .foregroundStyle(isUp ? Color.orange : Color.green)
-        } else {
-            // No meaningful change — just a quiet dash
-            Text("–")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-        }
     }
 
     // MARK: - Quick stats row
@@ -590,14 +505,6 @@ struct MenuPopoverView: View {
     }
 
     // MARK: - Color helpers
-
-    private func usageColor(_ percent: Double) -> Color {
-        switch percent {
-        case 86...: return .red       // ≥ 86% — critical
-        case 61...: return .orange    // 61–85% — warning
-        default:    return .green     // ≤ 60% — healthy
-        }
-    }
 
     private func providerProgressColor(for percent: Double) -> Color {
         switch percent {
